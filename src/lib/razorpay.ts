@@ -3,10 +3,38 @@ import crypto from "node:crypto";
 import Razorpay from "razorpay";
 import { serverEnv } from "@/lib/env";
 
+/** Thrown when the Razorpay env vars are obviously wrong (before we call the API). */
+export class RazorpayConfigError extends Error {}
+
+/**
+ * Catch the most common misconfiguration: pasting the Key ID into BOTH
+ * RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET. A real key secret is a ~24-char
+ * string with NO `rzp_` prefix; the Key ID always starts with `rzp_`.
+ */
+export function assertRazorpayConfig() {
+  const id = serverEnv.razorpayKeyId;
+  const secret = serverEnv.razorpayKeySecret;
+
+  if (!id.startsWith("rzp_")) {
+    throw new RazorpayConfigError(
+      "RAZORPAY_KEY_ID is invalid — it must start with `rzp_test_` or `rzp_live_`. " +
+        "Copy the Key Id from Razorpay Dashboard → Settings → API Keys.",
+    );
+  }
+  if (secret.startsWith("rzp_") || /^x+$/i.test(secret) || secret.includes("your-")) {
+    throw new RazorpayConfigError(
+      "RAZORPAY_KEY_SECRET is wrong — it looks like a Key Id or a placeholder. " +
+        "The Key Secret is the separate ~24-character value shown only once when you " +
+        "generated the key (Razorpay Dashboard → Settings → API Keys). It has no `rzp_` prefix.",
+    );
+  }
+}
+
 let _client: Razorpay | null = null;
 
 function client(): Razorpay {
   if (!_client) {
+    assertRazorpayConfig();
     _client = new Razorpay({
       key_id: serverEnv.razorpayKeyId,
       key_secret: serverEnv.razorpayKeySecret,
