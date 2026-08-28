@@ -69,8 +69,10 @@ Open **Project Settings** (gear icon):
 1. Sign up at https://dashboard.razorpay.com.
 2. Keep the dashboard in **Test Mode** (toggle, top-left) for now.
 3. **Settings → API Keys → Generate Test Key**. Copy:
-   - **Key Id** → `NEXT_PUBLIC_RAZORPAY_KEY_ID` **and** `RAZORPAY_KEY_ID` (same value)
-   - **Key Secret** → `RAZORPAY_KEY_SECRET`
+   - **Key Id** → `NEXT_PUBLIC_RAZORPAY_KEY_ID` **and** `RAZORPAY_KEY_ID` (same value). Starts with `rzp_test_`.
+   - **Key Secret** → `RAZORPAY_KEY_SECRET`. This is a **separate ~24-character string with NO `rzp_` prefix**, shown **only once** in a popup right after you generate the key.
+
+   > ⚠️ Do **not** put the Key Id in `RAZORPAY_KEY_SECRET` — they are different values. If you closed the popup without copying the secret, click **Regenerate Test Key** to get a fresh Id + Secret pair (the old pair stops working). A wrong secret shows up as a "payment error" at checkout (Razorpay returns `401 Authentication failed`).
 4. **Settings → Webhooks → Add New Webhook**:
    - **Webhook URL** (local testing): you need a public tunnel to `localhost`. Options:
      - Deploy to Vercel first and use `https://your-app.vercel.app/api/webhooks/razorpay`, **or**
@@ -245,11 +247,16 @@ Keep your **test** keys in a separate Vercel *Preview*/local environment so you 
 |---|---|
 | `Missing environment variable: …` on `npm run dev`/`build` | That var is absent from `.env.local`. Add it. |
 | Sign-up "check your email" but no email arrives | Turn off **Confirm email** in Supabase Auth for testing, or check spam. |
-| Images don't render | Confirm the `product-images` bucket exists and is **public** (schema.sql creates it). `next.config.ts` already allows `*.supabase.co`. |
+| Deployed store is **empty** — no products, `/category/*` returns 404 | `supabase/schema.sql` was never run on the project the deployment points at. Run it (step 2a), then `npm run seed`. Server logs show `PGRST205 Could not find the table …`. |
+| Images don't render | Confirm the `product-images` bucket exists and is **public** (schema.sql creates it). `next.config.ts` already allows `*.supabase.co`. If a URL opens fine directly but not on the page, it's a browser cache — hard-refresh (`Cmd/Ctrl+Shift+R`) or use a private window. |
 | "Admins only" on `/admin` | You didn't run the `update ... set is_admin = true` step, or you're logged in as a different user. |
+| **"Payment error" at checkout** / Razorpay `401 Authentication failed` in the logs | `RAZORPAY_KEY_SECRET` is wrong — usually the **Key Id was pasted into it**. The secret has no `rzp_` prefix and is shown only once; regenerate the key if you lost it. Set the matching Id + Secret in `.env.local` **and** on Vercel, then redeploy. |
+| Checkout says "Checkout function is missing" | `supabase/schema.sql` was only partially applied — re-run the whole file (it is idempotent). |
+| Confirmation / invite email links point to **`http://localhost:3000`** (or `otp_expired`) | `NEXT_PUBLIC_SITE_URL` on Vercel is still `http://localhost:3000`, and/or Supabase → Authentication → **URL Configuration → Site URL** is still localhost. Set both to `https://<your-app>.vercel.app`, add `https://<your-app>.vercel.app/**` to **Redirect URLs**, redeploy, then request a fresh email. |
 | Payment succeeds but order stays `pending` | The browser didn't reach `/api/checkout/verify` (closed tab too fast). The webhook will reconcile it if configured; otherwise it stays pending. |
 | `npm run seed` fails with "Missing …" | `.env.local` needs `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`. |
 | Seed fails on upload | Run `supabase/schema.sql` first so the bucket + policies exist. |
+| `.env.example` keeps disappearing locally | A dotenv / secret-scanning editor extension or security tool on your machine deletes files matching `.env*`. It is only a template (no secrets). Restore with `git checkout .env.example`, and avoid `git add -A` while it is missing. |
 
 ---
 
