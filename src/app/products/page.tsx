@@ -18,6 +18,9 @@ export default async function ProductsPage({
   const sp = await searchParams;
   const query = parseProductQuery(sp);
   const products = await getProducts(query);
+  const hasFilters = Boolean(
+    query.size || query.minPrice != null || query.maxPrice != null,
+  );
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
@@ -31,10 +34,17 @@ export default async function ProductsPage({
       <CatalogControls basePath="/products" />
 
       {products.length === 0 ? (
-        <EmptyState
-          title="No shoes match those filters"
-          description="Try widening your price range or clearing the size filter."
-        />
+        hasFilters ? (
+          <EmptyState
+            title="No shoes match those filters"
+            description="Try widening your price range or clearing the size filter."
+          />
+        ) : (
+          <EmptyState
+            title="No products yet"
+            description="The catalog is empty. If you're the store owner: run supabase/schema.sql in Supabase, then `npm run seed` (or add products from /admin). See SETUP.md."
+          />
+        )
       ) : (
         <ProductGrid products={products} />
       )}
